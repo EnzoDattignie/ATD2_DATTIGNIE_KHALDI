@@ -10,6 +10,8 @@ import sys
 #Initialisation du programme
 rm = pyvisa.ResourceManager()
 oscillo = rm.open_resource('ASRL3::INSTR')  #port serie 3
+
+
 oscillo.write(":Autos") #Autoset
 oscillo.write(':ACQ:RECO 1e+5') #Change le nombre de valeurs a 10000
 
