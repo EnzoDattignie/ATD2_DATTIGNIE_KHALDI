@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 # Le but de ce pprogramme est de tester si on peut conttroller l'oscillo en manipulant des string
 
-#pip install pyvisa-py
-
 import pyvisa
 import time
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
 
+rm = pyvisa.ResourceManager()
+oscillo = rm.open_resource('ASRL4::INSTR')
+gbf = rm.open_resource('USB0::0x1AB1::0x0642::DG1ZA241701521::INSTR') #Remplacer par le bon port
 
 #Création des différentes fonctions utiles
 
@@ -47,13 +47,13 @@ def question(_period,_volt, _duty) :
     print ("Les valeurs rentrées sont : \nVolt = {}\nPeriode = {}\nDuty = {} %".format(_volt,_period,_duty))
     answer = input("Voulez vous modifier une valeur ? (y/n)")
     if answer == "y" :
-        _period,_volt,_duty = question(_volt,_period,_duty)
+        _period,_volt,_duty = question(_volt,_period,_duty)# recursivité du code
     return _period,_volt,_duty
 
 
 def getGBF () :
     _period = gbf.query(":SOURce:PERiod?")
-    _duty = gbf.query (":SOURce:DCYCle?")
+    _duty = gbf.query (":SOURce:PULSe:DCYCle?")
     _volt = gbf.query(":SOURce:VOLTage?")
     vidage(gbf)
     return _period, _volt, _duty
@@ -68,7 +68,7 @@ def setGBF (period, voltage, duty) :
     gbf.write(":SOURce:PULSe:DCYCle "+str(duty))
     vidage(gbf)
 
-def lecture(CH,N=5):
+def lecture(CH):
     oscillo.write(':MEAS:SOUR'+str(CH)+' CH'+str(CH))
     time.sleep(1)
     oscillo.write(':ACQ'+str(CH)+":MEM?")
@@ -101,13 +101,13 @@ def vidage(instr=oscillo) :
         except :
             k = 1
 
-def sauvegarde(fichier,t,liste,liste2)
+def sauvegarde(fichier,t,liste,liste2) :
     with open(fichier,'w') as file :
         for i in range (0, len(t)) :
-            file.writelines([str(t[i]),",",str(liste[i]),",",str(liste2[i])"\n"])
+            file.writelines([str(t[i]),",",str(liste[i]),",",str(liste2[i]),"\n"])
 
-def graph(_vert_scale1, _vert_scale2,_t1, _t2):
-    plt.plot(_t1, _waveform1,'orange', label="CH1",)
+def graph(_waveform1, _waveform2,_t1, _t2):
+    plt.plot(_t1, _waveform1,'orange', label="CH1")
     plt.plot(_t2,_waveform2,'c', label="CH2")
     plt.grid()
     plt.xlabel("Time (s)")
@@ -144,22 +144,17 @@ def max_index(waveform1): #Fonction retournant l'index de valeur maximal d'une l
 
 ############################################################################################
         
-#Initialisation du programme
-rm = pyvisa.ResourceManager()
-oscillo = rm.open_resource('ASRL3::INSTR')  #port serie 3
-gbf = rm.open_resource('USB0::0x1AB1::0x0642::DG1ZA241701521::INSTR') #Remplacer par le bon port
-
-#On check que les deux fonctionnent
+#On check que les deux appereilles fonctionnent
 print(oscillo.query("*IDN?"))
 print(gbf.query("*IDN?"))
 vidage()
 
-oscillo.write(':ACQ:RECO 1e+5') #Change le nombre de valeurs a 10000
+oscillo.write(':ACQ:RECO 1e+5') #Nombre de points (resolution) par defaut a 10000 points
 gbf.write(":SOURce:FUNCtion PULSE") #On établit la forme du signal comme un pulse (a voir si il faut changer avec SQUare)
 
 #On récupère toutes les données du gbf
 gbf_period, gbf_volt, gbf_duty = getGBF()
-gbf_period = float(gbf_period)
+gbf_period = float(gbf_period) # intialement les variables sont des String
 gbf_volt = float(gbf_volt)
 gbf_duty = float(gbf_duty)
 
@@ -171,24 +166,29 @@ if answer == "y" :
 
 #On change les valeurs du gbf et on change la timebase de l'oscillo
 setGBF(gbf_period,gbf_volt,gbf_duty)
-timescale_str = notation_inge(gbf_period/10)
+timescale_str = notation_inge(gbf_period/10) #periode/10 car 10 divisions sur l'oscillo
 oscillo.write(":TIMebase:SCALe "+timescale_str)
 
-time_pos = float(oscillo.query(":TIMebase:POSition?"))
+time_pos = float(oscillo.query(":TIMebase:POSition?")) #on recupere le curseur
+
+#position relative du curseur vertical
 #On fait une premiere mesure pour bien aligner le timepos pour 
 vert_scale1,time_scale1,waveform1 = lecture(1)
-t1 = np.linspace(-5*time_scale1,5*time_scale1,len(waveform1))
+t1 = np.linspace(-5*time_scale1,5*time_scale1,len(waveform1)) #abscisse temporel de chaque points
 vidage()
 
-time_pos = notation_inge(time_pos + t1[max_index(waveform1)]*0.9) #J'hésite avec le signe - pour que le pic soit au départ de notre graph
+time_pos = notation_inge(time_pos + t1[max_index(waveform1)]*0.9) #On cherche à mettre le max au debut du signal
+ #J'hésite avec le signe - pour que le pic soit au départ de notre graph
 oscillo.write(":TIMebase:POSition "+time_pos)
 
 #Vraie bonne mesure de notre oscillo
-vert_scale1,time_scale1,waveform1 = lecture(1)
+vert_scale1,time_scale1,waveform1 = lecture(1) #recupere tous les points du signal
 time.sleep(0.5)
 vert_scale2,time_scale2,waveform2 = lecture(2)
 waveform1 = norm(waveform1,vert_scale1)
 waveform2 = norm(waveform2,vert_scale2)
+
+#normalement t1=t2
 t1 = np.linspace(-5*time_scale1,5*time_scale1,len(waveform1))
 t2 = np.linspace(-5*time_scale2,5*time_scale2,len(waveform2))
 
@@ -200,8 +200,7 @@ sav = input("Désirez vous sauvegarder les données ? (y/n)")
 if sav == "y" :
     try :
         fichier = input("Indiquer le nom du fichier : ")
-        sauvegarde(fichier,t,waveform1,waveform2)
+        sauvegarde(fichier,t1,waveform1,waveform2)
     except :
         print ("Une erreur est survenue, enregistrement impossible")
-
 
