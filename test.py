@@ -2,28 +2,31 @@
 
 import pyvisa
 
-rm = pyvisa.ResourceManager()
-oscillo = rm.open_resource('ASRL3::INSTR')
 
-string = "Autoset"
-oscillo.write(string)
-string = "Meas:"+"High?"
-print(oscillo.query(string))
+def getGBF () :
+    _period = gbf.query(":SOURce:PERiod?")
+    _duty = gbf.query (":SOURce:DCYCle?")
+    _volt = gbf.query(":SOURce:VOLTage?")
+    vidage(gbf)
+    return _period, _volt, _duty
 
-def bestTimeScale (liste,t,max_index) :
-    max = liste[max_index]
-    res =  False
-    i = max_index
-    compteur == 0
-    while (i < len(liste)) and (compteur != 10):
-        if liste[i] < max/100 :
-            compteur += 1
-        else :
-            compteur = 0
-        i += 1
-    if compteur == 10 :
-        res = (t[i]-t[max_index])*1.1/10
-    return res
+
+def setGBF (period, voltage, duty) :
+    gbf.write(":SOURce:PERiod "+str(period))
+    gbf.write(":SOURce:VOLTage "+str(voltage))
+    if duty > 100 or duty < 0 :
+        print ("Duty values incorrect, set to 1%")
+        duty = 1
+    gbf.write(":SOURce:PULSe:DCYCle "+str(duty))
+    vidage(gbf)
+
+    rm = pyvisa.ResourceManager()
+oscillo = rm.open_resource('ASRL3::INSTR')  #port serie 3
+gbf = rm.open_resource('USB0::0x1AB1::0x0642::DG1ZA241701521::INSTR') #Remplacer par le bon port
+
+#On check que les deux fonctionnent
+print(oscillo.query("*IDN?"))
+print(gbf.query("*IDN?"))
+vidage()
         
-
 
