@@ -102,13 +102,15 @@ def vidage(instr=oscillo) :
             k = 1
 
 def sauvegarde(fichier,t,liste,liste2) :
-def sauvegarde(fichier,t,liste,liste2) :
     with open(fichier,'w') as file :
         for i in range (0, len(t)) :
             file.writelines([str(t[i]),",",str(liste[i]),",",str(liste2[i]),"\n"])
-            file.writelines([str(t[i]),",",str(liste[i]),",",str(liste2[i]),"\n"])
 
+<<<<<<< HEAD:oscillo2.py
 def graph(_waveform1, _waveform2,_t1, _t2):
+=======
+def graph(_vert_scale1, _vert_scale2,_t1, _t2):
+>>>>>>> 0bbc4ca84f44a5ec4e43c46ae47132d7e268b2e5:oscillo.py
     plt.plot(_t1, _waveform1,'orange', label="CH1")
     plt.plot(_t2,_waveform2,'c', label="CH2")
     plt.grid()
