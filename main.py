@@ -1,16 +1,40 @@
 # -*- coding: utf-8 -*-
 # Le but de ce pprogramme est de tester si on peut conttroller l'oscillo en manipulant des string
 
+#pip install pyvisa-py
+
 import pyvisa
 import time
 import matplotlib.pyplot as plt
 import numpy as np
 
+    
 rm = pyvisa.ResourceManager()
-oscillo = rm.open_resource('ASRL4::INSTR')
-gbf = rm.open_resource('USB0::0x1AB1::0x0642::DG1ZA241701521::INSTR') #Remplacer par le bon port
+
+
+
+L=rm.list_resources() 
+for i in range(0, len(L)) :
+    try :
+        instrument=rm.open_resource(L[i-1])
+        try :
+            nom= instrument.query("*IDN?")
+            if nom.split(",")[0].strip("'")=="GW" :
+                oscillo = instrument
+            elif nom.split(" ")[0].strip(",")=="Rigol" :
+                gbf = instrument
+        except :
+            print("")
+    except : 
+        print("")
+       
+print(oscillo)
+    
+
 
 #Création des différentes fonctions utiles
+
+
 
 def question(_period,_volt, _duty) :
     answer = input("Que voulez vous modifier ? (volt,period,duty)")
@@ -69,7 +93,8 @@ def setGBF (period, voltage, duty) :
     vidage(gbf)
 
 def lecture(CH):
-    oscillo.write(':MEAS:SOUR'+str(CH)+' CH'+str(CH))
+    # oscillo.write(':MEAS:SOUR'+str(CH)+' CH'+str(CH))
+    #oscillo.write(':MEAS:SOUR1 CH'+str(CH))
     time.sleep(1)
     oscillo.write(':ACQ'+str(CH)+":MEM?")
     _header = oscillo.read()
@@ -80,7 +105,12 @@ def lecture(CH):
         _header = oscillo.read()
         _vert_scale=float(_header.split(";")[12].split(',')[1])
         _time_scale=float(_header.split(";")[15].split(',')[1])
-    _waveform = oscillo.read_binary_values(datatype='h',is_big_endian=True) #Essayer is_big_endian=True
+    try :
+        #time.sleep(1)
+        _waveform = oscillo.read_binary_values(datatype='h',is_big_endian=True) #Essayer is_big_endian=True
+    except :
+        print ("erreur dans la mesure de la waveform du channel {}".format(CH))
+        _waveform = np.zeros(10)
     return _vert_scale,_time_scale,_waveform
 
 
@@ -116,7 +146,9 @@ def graph(_waveform1, _waveform2,_t1, _t2):
     plt.show()
 
 def notation_inge(nb) : #Fonction qui ressort n'importe quel nombre en notation inge lisible par l'oscillo
-    if nb > 0 :
+    if nb < 0 :
+        string = "-"+notation_inge(-nb)
+    else :
         exposant = int(np.floor(np.log10(nb)))
         nb = round(nb*10**(-1*exposant),5)
         nb = int(str(nb)[0])
@@ -129,8 +161,16 @@ def notation_inge(nb) : #Fonction qui ressort n'importe quel nombre en notation 
             elif nb > 1 :
                 nb = 2
         string = str(nb)+"e"+str(exposant)
+    return string
+
+def notation_inge2(nb) : #Fonction qui ressort n'importe quel nombre en notation inge lisible par l'oscillo
+    if nb < 0 :
+        string = "-"+notation_inge(-nb)
     else :
-        string = "0"
+        exposant = int(np.floor(np.log10(nb)))
+        nb = round(nb*10**(-1*exposant),5)
+        nb = int(str(nb)[0])
+        string = str(nb)+"e"+str(exposant)
     return string
 
 def max_index(waveform1): #Fonction retournant l'index de valeur maximal d'une liste
@@ -149,6 +189,8 @@ print(oscillo.query("*IDN?"))
 print(gbf.query("*IDN?"))
 vidage()
 
+oscillo.write(":ACQUIRE:MODE AVERAGE")
+oscillo.write(":ACQUIRE:AVErage 128")
 oscillo.write(':ACQ:RECO 1e+5') #Nombre de points (resolution) par defaut a 10000 points
 gbf.write(":SOURce:FUNCtion PULSE") #On établit la forme du signal comme un pulse (a voir si il faut changer avec SQUare)
 
@@ -166,6 +208,8 @@ if answer == "y" :
 
 #On change les valeurs du gbf et on change la timebase de l'oscillo
 setGBF(gbf_period,gbf_volt,gbf_duty)
+oscillo.write(":TRIGger:SOURce CH1") 
+oscillo.write(":TRIgger:Level "+notation_inge2(gbf_volt/4))
 timescale_str = notation_inge(gbf_period/10) #periode/10 car 10 divisions sur l'oscillo
 oscillo.write(":TIMebase:SCALe "+timescale_str)
 
@@ -176,8 +220,7 @@ time_pos = float(oscillo.query(":TIMebase:POSition?")) #on recupere le curseur
 vert_scale1,time_scale1,waveform1 = lecture(1)
 t1 = np.linspace(-5*time_scale1,5*time_scale1,len(waveform1)) #abscisse temporel de chaque points
 vidage()
-
-time_pos = notation_inge(time_pos + t1[max_index(waveform1)]*0.9) #On cherche à mettre le max au debut du signal
+time_pos = notation_inge2(time_pos + t1[max_index(waveform1)] +4*time_scale1) #On cherche à mettre le max au debut du signal
  #J'hésite avec le signe - pour que le pic soit au départ de notre graph
 oscillo.write(":TIMebase:POSition "+time_pos)
 
