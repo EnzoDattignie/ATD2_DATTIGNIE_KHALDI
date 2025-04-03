@@ -105,12 +105,13 @@ def lecture(CH):
         _header = oscillo.read()
         _vert_scale=float(_header.split(";")[12].split(',')[1])
         _time_scale=float(_header.split(";")[15].split(',')[1])
+    if CH == 2 :
+        time.sleep(1)
     try :
-        #time.sleep(1)
         _waveform = oscillo.read_binary_values(datatype='h',is_big_endian=True) #Essayer is_big_endian=True
     except :
         print ("erreur dans la mesure de la waveform du channel {}".format(CH))
-        _waveform = np.zeros(10)
+        _waveform = np.zeros(10000)
     return _vert_scale,_time_scale,_waveform
 
 
@@ -189,6 +190,7 @@ print(oscillo.query("*IDN?"))
 print(gbf.query("*IDN?"))
 vidage()
 
+#oscillo.timeout = 5000
 oscillo.write(":ACQUIRE:MODE AVERAGE")
 oscillo.write(":ACQUIRE:AVErage 128")
 oscillo.write(':ACQ:RECO 1e+5') #Nombre de points (resolution) par defaut a 10000 points
@@ -226,7 +228,7 @@ oscillo.write(":TIMebase:POSition "+time_pos)
 
 #Vraie bonne mesure de notre oscillo
 vert_scale1,time_scale1,waveform1 = lecture(1) #recupere tous les points du signal
-time.sleep(0.5)
+time.sleep(1)
 vert_scale2,time_scale2,waveform2 = lecture(2)
 waveform1 = norm(waveform1,vert_scale1)
 waveform2 = norm(waveform2,vert_scale2)
@@ -246,4 +248,3 @@ if sav == "y" :
         sauvegarde(fichier,t1,waveform1,waveform2)
     except :
         print ("Une erreur est survenue, enregistrement impossible")
-
