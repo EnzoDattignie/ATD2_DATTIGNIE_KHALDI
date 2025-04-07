@@ -8,11 +8,9 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-    
+
+#On détecte les instruments de mesure par leur nom déclaré dans *IDN?
 rm = pyvisa.ResourceManager()
-
-
-
 L=rm.list_resources() 
 for i in range(0, len(L)) :
     try :
@@ -27,15 +25,12 @@ for i in range(0, len(L)) :
             print("")
     except : 
         print("")
-       
-print(oscillo)
-    
 
 
 #Création des différentes fonctions utiles
 
 
-
+#Fonction permettant juste de demander a l'utilisateur de modifier des valeurs du gbf
 def question(_period,_volt, _duty) :
     answer = input("Que voulez vous modifier ? (volt,period,duty)")
     val = ""
@@ -106,9 +101,9 @@ def lecture(CH):
         _vert_scale=float(_header.split(";")[12].split(',')[1])
         _time_scale=float(_header.split(";")[15].split(',')[1])
     if CH == 2 :
-        time.sleep(1)
+        time.sleep(1) #A supprimer si ca fait crash lecture 2, le programme est encore assez instable, c'est un fix qui semble régler le soucis néanmoins
     try :
-        _waveform = oscillo.read_binary_values(datatype='h',is_big_endian=True) #Essayer is_big_endian=True
+        _waveform = oscillo.read_binary_values(datatype='h',is_big_endian=True) 
     except :
         print ("erreur dans la mesure de la waveform du channel {}".format(CH))
         _waveform = np.zeros(10000)
@@ -116,14 +111,14 @@ def lecture(CH):
 
 
 
-def norm(_waveform,_vert_scale,AD=25) : #Ce qui est sensé marcher selon la docu
+def norm(_waveform,_vert_scale,AD=25) : #Permet de remettre la waveform en unité de potentiel
     wave = _waveform
     for i in range(0,len(wave)) :
         wave[i] = wave[i]/AD * _vert_scale
     return wave
 
 
-def vidage(instr=oscillo) :
+def vidage(instr=oscillo) : #Fonction qui vide juste toutes les données a lire jusqu'au prochain crash
     k = 0
     while k == 0 :
         try :
@@ -132,7 +127,7 @@ def vidage(instr=oscillo) :
         except :
             k = 1
 
-def sauvegarde(fichier,t,liste,liste2) :
+def sauvegarde(fichier,t,liste,liste2) : #Save au format csv
     with open(fichier,'w') as file :
         for i in range (0, len(t)) :
             file.writelines([str(t[i]),",",str(liste[i]),",",str(liste2[i]),"\n"])
@@ -151,7 +146,7 @@ def notation_inge(nb) : #Fonction qui ressort n'importe quel nombre en notation 
         string = "-"+notation_inge(-nb)
     else :
         exposant = int(np.floor(np.log10(nb)))
-        nb = round(nb*10**(-1*exposant),5)
+        nb = round(nb*10**(-1*exposant),5) #Round a changer
         nb = int(str(nb)[0])
         if nb != 1 and nb != 2 and nb != 5 :
             if nb > 5 :
@@ -164,12 +159,12 @@ def notation_inge(nb) : #Fonction qui ressort n'importe quel nombre en notation 
         string = str(nb)+"e"+str(exposant)
     return string
 
-def notation_inge2(nb) : #Fonction qui ressort n'importe quel nombre en notation inge lisible par l'oscillo
+def notation_inge2(nb) : #Fonction qui ressort n'importe quel nombre en notation inge lisible par l'oscillo, plus précise que la premiere fonction
     if nb < 0 :
         string = "-"+notation_inge(-nb)
     else :
         exposant = int(np.floor(np.log10(nb)))
-        nb = round(nb*10**(-1*exposant),5)
+        nb = round(nb*10**(-1*exposant),5) #Round a changer
         nb = int(str(nb)[0])
         string = str(nb)+"e"+str(exposant)
     return string
@@ -218,12 +213,11 @@ oscillo.write(":TIMebase:SCALe "+timescale_str)
 time_pos = float(oscillo.query(":TIMebase:POSition?")) #on recupere le curseur
 
 #position relative du curseur vertical
-#On fait une premiere mesure pour bien aligner le timepos pour 
+#On fait une premiere mesure pour bien aligner le timepos pour bien voir toute la figure sur notre écran
 vert_scale1,time_scale1,waveform1 = lecture(1)
 t1 = np.linspace(-5*time_scale1,5*time_scale1,len(waveform1)) #abscisse temporel de chaque points
 vidage()
 time_pos = notation_inge2(time_pos + t1[max_index(waveform1)] +4*time_scale1) #On cherche à mettre le max au debut du signal
- #J'hésite avec le signe - pour que le pic soit au départ de notre graph
 oscillo.write(":TIMebase:POSition "+time_pos)
 
 #Vraie bonne mesure de notre oscillo
